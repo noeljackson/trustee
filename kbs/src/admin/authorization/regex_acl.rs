@@ -63,7 +63,12 @@ impl AuthorizationTrait for RegexAclAuthorizer {
                 continue;
             }
 
-            if acl.regex.is_match(&request.uri().to_string()) {
+            // ACLs are configured and validated as absolute request paths
+            // beginning with `/kbs`. HTTP/2 may preserve an absolute-form URI
+            // on the server request, so matching the URI string would reject
+            // an otherwise identical request solely because it includes the
+            // scheme and authority. Match only the path contract.
+            if acl.regex.is_match(request.uri().path()) {
                 return Ok(AuthorizationDecision {
                     allowed: true,
                     reason: "Subject allowed".to_string(),
@@ -74,7 +79,7 @@ impl AuthorizationTrait for RegexAclAuthorizer {
             reason: format!(
                 "Role {} not allowed for path {}",
                 claims.role,
-                request.uri()
+                request.uri().path()
             ),
         })
     }
