@@ -31,7 +31,7 @@ jobs:
 
       - name: Build and publish exact KBS image
         env:
-          IMAGE: ghcr.io/${{ github.repository_owner }}/kbs-grpc-as
+          IMAGE: ghcr.io/${{ github.repository_owner }}/staged-images/kbs-grpc-as
           SOURCE_REPOSITORY: https://github.com/${{ github.repository }}
         run: |
           set -euo pipefail
