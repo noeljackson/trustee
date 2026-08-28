@@ -44,10 +44,7 @@ impl StorageBackend for KvStorage {
             resource_desc.repository_name, resource_desc.resource_type, resource_desc.resource_tag
         );
 
-        let deleted = self.storage.delete(&ref_resource_path).await?;
-        if deleted.is_none() {
-            bail!("resource not found: {}", ref_resource_path);
-        }
+        self.storage.delete(&ref_resource_path).await?;
 
         Ok(())
     }
