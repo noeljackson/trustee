@@ -3,7 +3,7 @@ name: Downstream KBS gRPC AS image
 on:
   push:
     branches:
-      - downstream/kbs-path-only-acl-v0.21.0
+      - downstream/confidential-storage
 
 permissions: {}
 
