@@ -8,11 +8,39 @@ use anyhow::{Context, Result};
 use policy_engine::rego::{Regorus, RegorusExtension};
 use serde_json::{json, Value};
 
-const POLICY: &str = include_str!("../policies/codewire-cpv-v1_cpu.rego");
+const POLICY: &str = include_str!("../policies/codewire-cpv-v2_cpu.rego");
 const TRUST_CLAIMS_RULE: &str = "data.policy.trust_claims";
+const ENVIRONMENT_ID: &str = "123e4567-e89b-42d3-a456-426614174000";
+const OTHER_ENVIRONMENT_ID: &str = "223e4567-e89b-42d3-a456-426614174000";
+const MANIFEST_TAG: &str =
+    "sha256-abababababababababababababababababababababababababababababababab";
+const OTHER_MANIFEST_TAG: &str =
+    "sha256-cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd";
+const INIT_DATA_SHA256: &str = "2222222222222222222222222222222222222222222222222222222222222222";
+const NEXT_INIT_DATA_SHA256: &str =
+    "3333333333333333333333333333333333333333333333333333333333333333";
+
+fn authorization_reference(environment_id: &str) -> String {
+    format!("codewire_cpv_init_data/{environment_id}")
+}
+
+fn authorization(
+    environment_id: &str,
+    storage_manifest_tag: &str,
+    init_data_sha256: &str,
+    state: &str,
+) -> Value {
+    json!({
+        "schema_version": 1,
+        "state": state,
+        "environment_id": environment_id,
+        "storage_manifest_tag": storage_manifest_tag,
+        "init_data_sha256": init_data_sha256,
+    })
+}
 
 fn reference_values() -> HashMap<String, Value> {
-    HashMap::from([
+    let mut references = HashMap::from([
         ("snp_launch_measurement".into(), json!(["11".repeat(48)])),
         ("snp_bootloader".into(), json!([3])),
         ("snp_microcode".into(), json!([4])),
@@ -24,15 +52,24 @@ fn reference_values() -> HashMap<String, Value> {
         ("snp_guest_abi_minor".into(), json!(51)),
         ("snp_single_socket".into(), json!(true)),
         ("snp_smt_allowed".into(), json!(true)),
-    ])
+    ]);
+    references.insert(
+        authorization_reference(ENVIRONMENT_ID),
+        authorization(ENVIRONMENT_ID, MANIFEST_TAG, INIT_DATA_SHA256, "authorized"),
+    );
+    references
 }
 
 fn approved_snp_claims() -> Value {
+    snp_claims(ENVIRONMENT_ID, MANIFEST_TAG, INIT_DATA_SHA256)
+}
+
+fn snp_claims(environment_id: &str, manifest_tag: &str, init_data_sha256: &str) -> Value {
     json!({
-        "init_data": "22".repeat(32),
+        "init_data": init_data_sha256,
         "init_data_claims": {
-            "codewire_workspace_storage_key_id": "123e4567-e89b-42d3-a456-426614174000",
-            "codewire_workspace_storage_manifest_tag": format!("sha256-{}", "ab".repeat(32)),
+            "codewire_workspace_storage_key_id": environment_id,
+            "codewire_workspace_storage_manifest_tag": manifest_tag,
         },
         "snp": {
             "measurement": "11".repeat(48),
@@ -119,6 +156,85 @@ async fn malformed_init_data_hash_is_contraindicated() -> Result<()> {
     input["init_data"] = json!("not-a-host-data-digest");
 
     let claims = evaluate(input, reference_values()).await?;
+    assert_contraindicated(&claims);
+    Ok(())
+}
+
+#[tokio::test]
+async fn self_consistent_claim_and_path_substitution_is_contraindicated() -> Result<()> {
+    let input = snp_claims(
+        OTHER_ENVIRONMENT_ID,
+        OTHER_MANIFEST_TAG,
+        NEXT_INIT_DATA_SHA256,
+    );
+
+    let claims = evaluate(input, reference_values()).await?;
+    assert_contraindicated(&claims);
+    Ok(())
+}
+
+#[tokio::test]
+async fn changed_agent_policy_or_workload_is_contraindicated() -> Result<()> {
+    let input = snp_claims(ENVIRONMENT_ID, MANIFEST_TAG, NEXT_INIT_DATA_SHA256);
+
+    let claims = evaluate(input, reference_values()).await?;
+    assert_contraindicated(&claims);
+    Ok(())
+}
+
+#[tokio::test]
+async fn replaced_authorization_denies_old_digest_and_accepts_new_digest() -> Result<()> {
+    let mut references = reference_values();
+    references.insert(
+        authorization_reference(ENVIRONMENT_ID),
+        authorization(
+            ENVIRONMENT_ID,
+            MANIFEST_TAG,
+            NEXT_INIT_DATA_SHA256,
+            "authorized",
+        ),
+    );
+
+    let replayed = evaluate(approved_snp_claims(), references.clone()).await?;
+    assert_contraindicated(&replayed);
+
+    let replacement = evaluate(
+        snp_claims(ENVIRONMENT_ID, MANIFEST_TAG, NEXT_INIT_DATA_SHA256),
+        references,
+    )
+    .await?;
+    assert_affirming(&replacement);
+    Ok(())
+}
+
+#[tokio::test]
+async fn tombstoned_authorization_is_contraindicated() -> Result<()> {
+    let mut references = reference_values();
+    references.insert(
+        authorization_reference(ENVIRONMENT_ID),
+        authorization(ENVIRONMENT_ID, MANIFEST_TAG, INIT_DATA_SHA256, "revoked"),
+    );
+
+    let claims = evaluate(approved_snp_claims(), references).await?;
+    assert_contraindicated(&claims);
+    Ok(())
+}
+
+#[tokio::test]
+async fn cross_environment_authorization_substitution_is_contraindicated() -> Result<()> {
+    let mut references = reference_values();
+    references.insert(
+        authorization_reference(OTHER_ENVIRONMENT_ID),
+        authorization(
+            OTHER_ENVIRONMENT_ID,
+            OTHER_MANIFEST_TAG,
+            NEXT_INIT_DATA_SHA256,
+            "authorized",
+        ),
+    );
+
+    let input = snp_claims(ENVIRONMENT_ID, MANIFEST_TAG, NEXT_INIT_DATA_SHA256);
+    let claims = evaluate(input, references).await?;
     assert_contraindicated(&claims);
     Ok(())
 }

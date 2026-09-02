@@ -361,7 +361,7 @@ mod tests {
                     },
                 ),
             timeout: 600,
-            default_policy_ids: vec!["codewire-cpv-v1".into()],
+            default_policy_ids: vec!["codewire-cpv-v2".into()],
             policy_id_map: std::collections::HashMap::from([(
                 "alice".into(),
                 vec!["alice-strict".into()],

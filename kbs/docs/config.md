@@ -162,7 +162,7 @@ specific appraisal policy should set it explicitly:
 
 ```toml
 [attestation_service]
-default_policy_ids = ["codewire-cpv-v1"]
+default_policy_ids = ["codewire-cpv-v2"]
 ```
 
 `policy_id_map` maps each attestation-policy-selector a client may select to one

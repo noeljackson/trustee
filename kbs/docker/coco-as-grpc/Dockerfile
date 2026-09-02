@@ -27,6 +27,10 @@ RUN if [ $(uname -m) != ${ARCH} ]; then \
 RUN cd kbs && make AS_FEATURE=coco-as-grpc ALIYUN=${ALIYUN} ARCH=${ARCH} NEBULA_CA_PLUGIN=${NEBULA_CA_PLUGIN} VAULT=${VAULT} EXTERNAL_PLUGIN=${EXTERNAL_PLUGIN} && \
     make ARCH=${ARCH} install-kbs
 
+# Ship the exact-tree RVPS alongside KBS so the existing downstream image is
+# the sole publication artifact for both policy-enforcement services.
+RUN cargo install --bin rvps --path rvps --locked
+
 # Download and install Nebula
 RUN if [ "${NEBULA_CA_PLUGIN}" = "true" ]; then \
        curl -fSLO https://github.com/slackhq/nebula/releases/download/${NEBULA_VERSION}/nebula-$(echo ${BUILDPLATFORM:-linux/amd64}} | sed 's/\//-/').tar.gz && \
@@ -41,7 +45,8 @@ FROM ubuntu@sha256:7c06e91f61fa88c08cc74f7e1b7c69ae24910d745357e0dfe1d2c0322aaf2
 LABEL org.opencontainers.image.source="https://github.com/confidential-containers/trustee/kbs"
 
 COPY --from=builder /usr/local/bin/kbs /usr/local/bin/kbs
+COPY --from=builder /usr/local/cargo/bin/rvps /usr/local/bin/rvps
 COPY --from=builder /usr/local/bin/nebula-cert* /usr/local/bin/nebula-cert
-COPY --from=builder /usr/src/kbs/kbs/sample_policies/codewire-cpv-v1.rego /usr/local/share/trustee/policies/codewire-cpv-v1.rego
-COPY --from=builder /usr/src/kbs/attestation-service/policies/codewire-cpv-v1_cpu.rego /usr/local/share/trustee/policies/codewire-cpv-v1_cpu.rego
+COPY --from=builder /usr/src/kbs/kbs/sample_policies/codewire-cpv-v2.rego /usr/local/share/trustee/policies/codewire-cpv-v2.rego
+COPY --from=builder /usr/src/kbs/attestation-service/policies/codewire-cpv-v2_cpu.rego /usr/local/share/trustee/policies/codewire-cpv-v2_cpu.rego
 RUN rm -rf /usr/local/bin/nebula-cert-dummy

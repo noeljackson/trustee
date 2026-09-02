@@ -8,4 +8,4 @@ There are also several example policies used [for testing](../../deps/policy-eng
 |[allow_all.rego](./allow_all.rego)|Equivalent to turning off the policy engine. Release resources unconditionally|
 |[deny_all.rego](./deny_all.rego)|Deny all resources release|
 |[affirming.rego](./affirming.rego)|Only release resources if the AS provides an affirming EAR token|
-|[codewire-cpv-v1.rego](./codewire-cpv-v1.rego)|Release only exact Codewire CPV key and content-addressed manifest paths after an affirming `codewire-cpv-v1` appraisal with matching measured storage claims|
+|[codewire-cpv-v2.rego](./codewire-cpv-v2.rego)|Release only exact Codewire CPV key and content-addressed manifest paths after an affirming `codewire-cpv-v2` appraisal and a matching live, owner-authorized init-data record|

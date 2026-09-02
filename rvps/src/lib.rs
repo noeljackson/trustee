@@ -118,6 +118,14 @@ impl Rvps {
         let reference_value: ReferenceValue =
             serde_json::from_slice(&reference_value_vec).context("deserialize reference value")?;
 
+        // Expiration is an authorization boundary, not display metadata. Keep
+        // the stored value so a concurrent replacement cannot be deleted by a
+        // stale reader, but never return an expired value to an appraisal or
+        // resource-policy caller.
+        if reference_value.expired() {
+            return Ok(None);
+        }
+
         Ok(Some(reference_value.value()))
     }
 
@@ -128,5 +136,45 @@ impl Rvps {
     pub async fn delete_reference_value(&self, reference_value_id: &str) -> Result<bool> {
         let deleted = self.storage.delete(reference_value_id).await?;
         Ok(deleted.is_some())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use chrono::{TimeZone, Utc};
+    use key_value_storage::{memory::MemoryKeyValueStorage, KeyValueStorage, SetParameters};
+    use serde_json::json;
+
+    use super::{ReferenceValue, Rvps};
+
+    #[tokio::test]
+    async fn expired_reference_values_are_not_returned() {
+        let storage = Arc::new(MemoryKeyValueStorage::default());
+        let rvps = Rvps::new_with_storage(None, storage.clone()).await.unwrap();
+        let reference = ReferenceValue::new()
+            .unwrap()
+            .set_name("expired-authorization")
+            .set_expiration(Utc.with_ymd_and_hms(1970, 1, 1, 0, 0, 0).unwrap())
+            .set_value(json!({"state": "authorized"}));
+
+        storage
+            .set(
+                reference.name(),
+                &reference.to_bytes().unwrap(),
+                SetParameters { overwrite: true },
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(
+            rvps.query_reference_value(reference.name()).await.unwrap(),
+            None
+        );
+        assert!(
+            storage.get(reference.name()).await.unwrap().is_some(),
+            "an expired read must not race-delete a concurrent replacement"
+        );
     }
 }
