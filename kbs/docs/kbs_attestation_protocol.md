@@ -126,8 +126,9 @@ Service policies that evaluate this session's evidence:
 
 KBS maps each `policy-selector` to one or more attestation policies, so the
 accepted values are specific to a deployment and must be known to the KBC in
-advance. An unmapped `policy-selector` is rejected, and omitting the field
-selects a default policy.
+advance. An unmapped `policy-selector` is rejected. When the field is omitted,
+KBS uses its configured `default_policy_ids`; if that list is empty, selection
+falls back to the Attestation Service default for backwards compatibility.
 Note that not all backend attestation services support multiple policies, e.g.
 CoCo AS now only support one policy, while ITA supports multiple.
 
@@ -791,4 +792,3 @@ The following individuals were instrumental in the development of this protocol:
 * Sergio Lopez (@slp)
 * Thomas Fossati (@thomas-fossati)
 * Tobin Feldman-Fitzthum (@fitzthum)
-

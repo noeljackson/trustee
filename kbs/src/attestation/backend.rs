@@ -134,15 +134,17 @@ pub trait Attest: Send + Sync {
 /// `Request` into the Attestation Service policies to evaluate its evidence
 /// with.
 ///
-/// Selecting no policy-selector leaves the Attestation Service default in
-/// place. An unknown policy-selector is rejected instead of silently falling
-/// back, so a client can only reach policies that an administrator declared.
+/// Selecting no policy-selector uses the administrator-configured defaults, if
+/// present, and otherwise leaves the Attestation Service default in place. An
+/// unknown policy-selector is rejected instead of silently falling back, so a
+/// client can only reach policies that an administrator declared.
 fn resolve_policy_ids(
     policy_id_map: &HashMap<String, Vec<String>>,
+    default_policy_ids: &[String],
     extra_params: &serde_json::Value,
 ) -> anyhow::Result<Option<Vec<String>>> {
     let Some(policy_selector) = extra_params.get(POLICY_SELECTOR_JSON_KEY) else {
-        return Ok(None);
+        return Ok((!default_policy_ids.is_empty()).then(|| default_policy_ids.to_vec()));
     };
 
     let policy_selector = policy_selector
@@ -170,6 +172,9 @@ pub struct AttestationService {
 
     /// Policies a client is allowed to select, keyed by policy-selector
     policy_id_map: HashMap<String, Vec<String>>,
+
+    /// Policies selected when a client does not provide a policy-selector.
+    default_policy_ids: Vec<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -195,6 +200,11 @@ impl AttestationService {
                     ),
                 });
             }
+        }
+        if config.default_policy_ids.iter().any(String::is_empty) {
+            return Err(Error::AttestationServiceInitialization {
+                source: anyhow!("default attestation policy IDs must not be empty"),
+            });
         }
 
         let inner = match config.attestation_service {
@@ -267,6 +277,7 @@ impl AttestationService {
             timeout: config.timeout,
             session_map,
             policy_id_map: config.policy_id_map,
+            default_policy_ids: config.default_policy_ids,
         })
     }
 
@@ -308,8 +319,12 @@ impl AttestationService {
 
         // Resolve eagerly so that an unusable ID is reported here instead of
         // surfacing as an attestation failure later on.
-        if let Some(policy_ids) = resolve_policy_ids(&self.policy_id_map, &request.extra_params)
-            .inspect_err(|_| AUTH_ERRORS.inc())?
+        if let Some(policy_ids) = resolve_policy_ids(
+            &self.policy_id_map,
+            &self.default_policy_ids,
+            &request.extra_params,
+        )
+        .inspect_err(|_| AUTH_ERRORS.inc())?
         {
             debug!("Selected attestation policies: {policy_ids:?}");
         }
@@ -461,8 +476,12 @@ impl AttestationService {
             .trim_end_matches('"')
             .to_owned();
 
-        let policy_ids = resolve_policy_ids(&self.policy_id_map, &session.request().extra_params)
-            .inspect_err(|_| ATTESTATION_ERRORS.inc())?;
+        let policy_ids = resolve_policy_ids(
+            &self.policy_id_map,
+            &self.default_policy_ids,
+            &session.request().extra_params,
+        )
+        .inspect_err(|_| ATTESTATION_ERRORS.inc())?;
 
         let token = self
             .inner
@@ -575,7 +594,7 @@ mod tests {
         #[case] extra_params: serde_json::Value,
         #[case] expected: Option<Option<Vec<&str>>>,
     ) {
-        let resolved = resolve_policy_ids(&policy_id_map(), &extra_params);
+        let resolved = resolve_policy_ids(&policy_id_map(), &[], &extra_params);
 
         let expected = expected.map(|policy_ids| {
             policy_ids
@@ -592,10 +611,37 @@ mod tests {
     fn test_resolve_policy_ids_without_map() {
         let policy_id_map = HashMap::new();
 
-        assert!(resolve_policy_ids(&policy_id_map, &json!({}))
+        assert!(resolve_policy_ids(&policy_id_map, &[], &json!({}))
             .unwrap()
             .is_none());
-        assert!(resolve_policy_ids(&policy_id_map, &json!({"policy-selector": "alice"})).is_err());
+        assert!(
+            resolve_policy_ids(&policy_id_map, &[], &json!({"policy-selector": "alice"})).is_err()
+        );
+    }
+
+    #[test]
+    fn test_resolve_configured_default_policy_ids() {
+        let defaults = vec!["codewire-cpv-v1".to_string()];
+
+        assert_eq!(
+            resolve_policy_ids(&policy_id_map(), &defaults, &json!({})).unwrap(),
+            Some(defaults)
+        );
+    }
+
+    #[test]
+    fn test_selector_overrides_configured_default_policy_ids() {
+        let defaults = vec!["codewire-cpv-v1".to_string()];
+
+        assert_eq!(
+            resolve_policy_ids(
+                &policy_id_map(),
+                &defaults,
+                &json!({"policy-selector": "alice"})
+            )
+            .unwrap(),
+            Some(vec!["alice-strict".to_string()])
+        );
     }
 
     #[tokio::test]
