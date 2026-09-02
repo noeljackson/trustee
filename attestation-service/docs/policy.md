@@ -79,6 +79,14 @@ For a request with `policy_ids: ["default"]`, AS evaluates:
 
 AS ships these default policies: `default_cpu`, `default_gpu`, `default_switch`, and `default_ppcie`.
 
+The repository also contains a fail-closed, deployment policy for Codewire
+confidential persistent volumes at
+[`policies/codewire-cpv-v1_cpu.rego`](../policies/codewire-cpv-v1_cpu.rego).
+It requires SNP evidence, verifier-bound init-data, and every configured SNP
+TCB reference value. It is not selected automatically; KBS must explicitly
+select the `codewire-cpv-v1` policy family and the policy must be installed in
+AS storage as `codewire-cpv-v1_cpu`.
+
 If multiple `policy_ids` are provided, only the first one is used for EAR token generation.
 
 ## How to Use Policy
