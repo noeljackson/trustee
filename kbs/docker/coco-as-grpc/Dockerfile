@@ -42,4 +42,6 @@ LABEL org.opencontainers.image.source="https://github.com/confidential-container
 
 COPY --from=builder /usr/local/bin/kbs /usr/local/bin/kbs
 COPY --from=builder /usr/local/bin/nebula-cert* /usr/local/bin/nebula-cert
+COPY --from=builder /usr/src/kbs/kbs/sample_policies/codewire-cpv-v1.rego /usr/local/share/trustee/policies/codewire-cpv-v1.rego
+COPY --from=builder /usr/src/kbs/attestation-service/policies/codewire-cpv-v1_cpu.rego /usr/local/share/trustee/policies/codewire-cpv-v1_cpu.rego
 RUN rm -rf /usr/local/bin/nebula-cert-dummy
