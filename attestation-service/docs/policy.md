@@ -81,11 +81,12 @@ AS ships these default policies: `default_cpu`, `default_gpu`, `default_switch`,
 
 The repository also contains a fail-closed, deployment policy for Codewire
 confidential persistent volumes at
-[`policies/codewire-cpv-v1_cpu.rego`](../policies/codewire-cpv-v1_cpu.rego).
-It requires SNP evidence, verifier-bound init-data, and every configured SNP
-TCB reference value. It is not selected automatically; KBS must explicitly
-select the `codewire-cpv-v1` policy family and the policy must be installed in
-AS storage as `codewire-cpv-v1_cpu`.
+[`policies/codewire-cpv-v2_cpu.rego`](../policies/codewire-cpv-v2_cpu.rego).
+It requires SNP evidence, verifier-bound init-data, an authenticated
+per-environment RVPS authorization for the exact raw init-data digest, and
+every configured SNP TCB reference value. It is not selected automatically;
+KBS must explicitly select the `codewire-cpv-v2` policy family and the policy
+must be installed in AS storage as `codewire-cpv-v2_cpu`.
 
 If multiple `policy_ids` are provided, only the first one is used for EAR token generation.
 

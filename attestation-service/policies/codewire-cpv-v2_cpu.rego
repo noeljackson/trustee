@@ -3,7 +3,7 @@ package policy
 import rego.v1
 
 # Codewire confidential persistent volumes use this policy as
-# `codewire-cpv-v1_cpu`. The KBS selects the `codewire-cpv-v1` policy family;
+# `codewire-cpv-v2_cpu`. The KBS selects the `codewire-cpv-v2` policy family;
 # the Attestation Service appends the evidence class suffix.
 
 # Conservative defaults make the resulting EAR appraisal contraindicated when
@@ -38,15 +38,39 @@ bound_init_data if {
 	is_object(input.init_data_claims)
 }
 
-executables := 3 if {
+environment_id_pattern := "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+storage_manifest_tag_pattern := "^sha256-[0-9a-f]{64}$"
+
+# The launcher controls HOST_DATA and the init-data bytes together. Trust them
+# only when Codewire's authenticated KBS administrator has preauthorized the
+# complete raw init-data digest in the canonical per-environment RVPS record.
+# The single record is atomically replaceable and a non-authorized state is a
+# tombstone, so policy/workload replacement and revocation fail closed.
+owner_authorized_init_data if {
 	bound_init_data
+	claims := input.init_data_claims
+	regex.match(environment_id_pattern, claims.codewire_workspace_storage_key_id)
+	regex.match(storage_manifest_tag_pattern, claims.codewire_workspace_storage_manifest_tag)
+
+	reference_id := sprintf("codewire_cpv_init_data/%s", [claims.codewire_workspace_storage_key_id])
+	authorization := query_reference_value(reference_id)
+	is_object(authorization)
+	authorization.schema_version == 1
+	authorization.state == "authorized"
+	authorization.environment_id == claims.codewire_workspace_storage_key_id
+	authorization.storage_manifest_tag == claims.codewire_workspace_storage_manifest_tag
+	authorization.init_data_sha256 == input.init_data
+}
+
+executables := 3 if {
+	owner_authorized_init_data
 	measurements := query_reference_value("snp_launch_measurement")
 	is_array(measurements)
 	input.snp.measurement in measurements
 }
 
 hardware := 2 if {
-	bound_init_data
+	owner_authorized_init_data
 	bootloaders := query_reference_value("snp_bootloader")
 	microcodes := query_reference_value("snp_microcode")
 	snp_svns := query_reference_value("snp_snp_svn")
@@ -62,7 +86,7 @@ hardware := 2 if {
 }
 
 configuration := 2 if {
-	bound_init_data
+	owner_authorized_init_data
 	input.snp.policy_debug_allowed == false
 	input.snp.policy_migrate_ma == false
 	input.snp.platform_smt_enabled == query_reference_value("snp_smt_enabled")

@@ -624,7 +624,7 @@ mod tests {
 
     #[test]
     fn test_resolve_configured_default_policy_ids() {
-        let defaults = vec!["codewire-cpv-v1".to_string()];
+        let defaults = vec!["codewire-cpv-v2".to_string()];
 
         assert_eq!(
             resolve_policy_ids(&policy_id_map(), &defaults, &json!({})).unwrap(),
@@ -634,7 +634,7 @@ mod tests {
 
     #[test]
     fn test_selector_overrides_configured_default_policy_ids() {
-        let defaults = vec!["codewire-cpv-v1".to_string()];
+        let defaults = vec!["codewire-cpv-v2".to_string()];
 
         assert_eq!(
             resolve_policy_ids(
