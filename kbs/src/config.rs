@@ -361,6 +361,7 @@ mod tests {
                     },
                 ),
             timeout: 600,
+            default_policy_ids: vec!["codewire-cpv-v1".into()],
             policy_id_map: std::collections::HashMap::from([(
                 "alice".into(),
                 vec!["alice-strict".into()],
@@ -425,6 +426,7 @@ mod tests {
                     }
                 ),
             timeout: crate::attestation::config::DEFAULT_TIMEOUT,
+            default_policy_ids: Default::default(),
             policy_id_map: Default::default(),
         },
         http_server: HttpServerConfig {
@@ -469,6 +471,7 @@ mod tests {
                     }
                 ),
             timeout: crate::attestation::config::DEFAULT_TIMEOUT,
+            default_policy_ids: Default::default(),
             policy_id_map: Default::default(),
         },
         http_server: HttpServerConfig {
@@ -518,6 +521,7 @@ mod tests {
                     },
                 ),
             timeout: crate::attestation::config::DEFAULT_TIMEOUT,
+            default_policy_ids: Default::default(),
             policy_id_map: Default::default(),
         },
         http_server: HttpServerConfig {
@@ -564,6 +568,7 @@ mod tests {
                     }
                 ),
             timeout: crate::attestation::config::DEFAULT_TIMEOUT,
+            default_policy_ids: Default::default(),
             policy_id_map: Default::default(),
         },
         http_server: HttpServerConfig {
@@ -606,6 +611,7 @@ mod tests {
                     }
                 ),
             timeout: crate::attestation::config::DEFAULT_TIMEOUT,
+            default_policy_ids: Default::default(),
             policy_id_map: Default::default(),
         },
         http_server: HttpServerConfig {
@@ -634,6 +640,7 @@ mod tests {
                     },
                 ),
             timeout: crate::attestation::config::DEFAULT_TIMEOUT,
+            default_policy_ids: Default::default(),
             policy_id_map: Default::default(),
         },
         http_server: HttpServerConfig {
@@ -665,6 +672,7 @@ mod tests {
                     }
                 ),
             timeout: crate::attestation::config::DEFAULT_TIMEOUT,
+            default_policy_ids: Default::default(),
             policy_id_map: Default::default(),
         },
         http_server: HttpServerConfig {
@@ -696,8 +704,9 @@ mod tests {
                         },
                         verifier_config: None,
                     }
-                ),
+            ),
             timeout: crate::attestation::config::DEFAULT_TIMEOUT,
+            default_policy_ids: Default::default(),
             policy_id_map: Default::default(),
         },
         http_server: HttpServerConfig {
