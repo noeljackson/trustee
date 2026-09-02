@@ -102,18 +102,22 @@ impl From<KbsConfigType> for TestParameters {
             KbsConfigType::EarTokenBuiltInRvps => TestParameters {
                 rvps_type: RvpsType::Builtin,
                 admin_type: AdminType::Simple,
+                default_policy_ids: Vec::new(),
             },
             KbsConfigType::EarTokenRemoteRvps => TestParameters {
                 rvps_type: RvpsType::Remote,
                 admin_type: AdminType::Simple,
+                default_policy_ids: Vec::new(),
             },
             KbsConfigType::EarTokenBuiltInRvpsDenyAllAdmin => TestParameters {
                 rvps_type: RvpsType::Builtin,
                 admin_type: AdminType::DenyAll,
+                default_policy_ids: Vec::new(),
             },
             KbsConfigType::EarTokenBuiltInRvpsSimpleRestrictedAdmin => TestParameters {
                 rvps_type: RvpsType::Builtin,
                 admin_type: AdminType::SimpleRestricted,
+                default_policy_ids: Vec::new(),
             },
         }
     }
@@ -123,6 +127,17 @@ impl From<KbsConfigType> for TestParameters {
 pub struct TestParameters {
     pub rvps_type: RvpsType,
     pub admin_type: AdminType,
+    pub default_policy_ids: Vec<String>,
+}
+
+impl TestParameters {
+    pub fn with_default_policy_ids(
+        mut self,
+        policy_ids: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Self {
+        self.default_policy_ids = policy_ids.into_iter().map(Into::into).collect();
+        self
+    }
 }
 
 /// Internal state of tests
@@ -334,6 +349,7 @@ impl TestHarness {
             },
             attestation_service: AttestationConfig {
                 policy_id_map: HashMap::new(),
+                default_policy_ids: test_parameters.default_policy_ids.clone(),
                 attestation_service: AttestationServiceConfig::CoCoASBuiltIn(
                     kbs::attestation::coco::builtin::Config {
                         rvps_config,

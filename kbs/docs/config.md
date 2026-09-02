@@ -154,8 +154,19 @@ Concrete attestation service can be set via `type` field. Supported attestation 
 
 Due to different `type` field, properties are different.
 
-`timeout` and `policy_id_map` apply to every type. The latter is a table mapping
-each attestation-policy-selector a client may select to one or more policy IDs:
+`timeout`, `default_policy_ids`, and `policy_id_map` apply to every type.
+`default_policy_ids` selects the policies used when a client does not send a
+attestation-policy-selector. It is empty by default for backwards compatibility, leaving
+selection to the configured Attestation Service. Deployments that require a
+specific appraisal policy should set it explicitly:
+
+```toml
+[attestation_service]
+default_policy_ids = ["codewire-cpv-v1"]
+```
+
+`policy_id_map` maps each attestation-policy-selector a client may select to one
+or more policy IDs:
 
 ```toml
 [attestation_service.policy_id_map]
@@ -173,6 +184,7 @@ When `type` is set to `coco_as_builtin`, the following properties can be set.
 | Property                   | Type                        | Description                                              | Default                                                                                                       |
 |----------------------------|-----------------------------|----------------------------------------------------------|---------------------------------------------------------------------------------------------------------------|
 | `timeout`                  | Integer                     | The maximum time (in minutes) of the attestation session | 5                                                                                                             |
+| `default_policy_ids`       | String array                | AS policies used when the client does not select one     | `[]`                                                                                                          |
 | `policy_id_map`            | Map of String array         | AS policies selectable by a client, keyed by attestation-policy-selector. See [RCAR `Request`][ps]| `{}`                                                          |
 | `rvps_config`              | [RVPSConfiguration][2]      | RVPS configuration                                       | See [RVPSConfiguration][2]                                                                                    |
 | `attestation_token_broker` | [AttestationTokenBroker][1] | Attestation result token configuration.                  | See [AttestationTokenBroker][1]                                                                               |
@@ -246,6 +258,7 @@ The following properties can be set.
 | Property    | Type    | Description                                                                                                                   | Default                  |
 |-------------|---------|-------------------------------------------------------------------------------------------------------------------------------|--------------------------|
 | `timeout`   | Integer | The maximum time (in minutes) between RCAR handshake's `auth` and `attest` requests                                           | 5                        |
+| `default_policy_ids` | String array | AS policies used when the client does not select one                                                    | `[]`                     |
 | `policy_id_map` | Map of String array | AS policies selectable by a client, keyed by attestation-policy-selector. See [RCAR `Request`][ps]                    | `{}`                     |
 | `as_addr`   | String  | The URL of the remote CoCoAS                                                                                                  | `http://127.0.0.1:50004` |
 | `pool_size` | Integer | The connections between KBS and CoCoAS are maintained in a conenction pool. This property determines the max size of the pool | `100`                    |
@@ -260,6 +273,7 @@ The following properties can be set.
 | Property                 | Type         | Description                                                                                            | Required | Default |
 |--------------------------|--------------|--------------------------------------------------------------------------------------------------------|----------|---------|
 | `timeout`                | Integer      | The maximum time (in minutes) between RCAR handshake's `auth` and `attest` requests                    | No       | 5       |
+| `default_policy_ids`     | String array | AS policies used when the client does not select one                                                   | No       | `[]`    |
 | `base_url`               | String       | Intel Trust Authority API URL.                                                                         | Yes      | -       |
 | `api_key`                | String       | Intel Trust Authority API key.                                                                         | Yes      | -       |
 | `certs_file`             | String       | URL to an Intel Trust Authority portal or path to JWKS file used for token verification.               | Yes      | -       |

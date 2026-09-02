@@ -6,6 +6,7 @@ type = "coco_as_grpc"
 as_addr = "http://127.0.0.1:50001"
 pool_size = 100
 timeout = 600
+default_policy_ids = ["codewire-cpv-v1"]
 
 [attestation_service.policy_id_map]
 alice = ["alice-strict"]
