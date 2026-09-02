@@ -24,6 +24,15 @@ pub struct AttestationConfig {
     /// selection. Only attestation-policy-selectors declared here are reachable.
     #[serde(default)]
     pub policy_id_map: HashMap<String, Vec<String>>,
+
+    /// Attestation Service policies used when the RCAR `Request` does not
+    /// select a policy explicitly.
+    ///
+    /// Empty by default for backwards compatibility, which leaves policy
+    /// selection to the Attestation Service. Deployments that require a
+    /// specific appraisal policy should configure this list explicitly.
+    #[serde(default)]
+    pub default_policy_ids: Vec<String>,
 }
 
 impl Default for AttestationConfig {
@@ -32,6 +41,7 @@ impl Default for AttestationConfig {
             attestation_service: AttestationServiceConfig::default(),
             timeout: DEFAULT_TIMEOUT,
             policy_id_map: HashMap::new(),
+            default_policy_ids: Vec::new(),
         }
     }
 }
