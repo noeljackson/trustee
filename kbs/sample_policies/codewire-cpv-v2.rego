@@ -3,7 +3,7 @@ package policy
 import rego.v1
 
 # Storage-specific policy for Codewire confidential persistent volumes. The
-# corresponding KBS deployment must select the `codewire-cpv-v1` AS policy
+# corresponding KBS deployment must select the `codewire-cpv-v2` AS policy
 # family, so a generic or client-selected appraisal cannot authorize access.
 default allow := false
 
@@ -12,7 +12,7 @@ storage_manifest_tag_pattern := "^sha256-[0-9a-f]{64}$"
 
 approved_appraisal(appraisal) if {
 	appraisal["ear.status"] == "affirming"
-	appraisal["ear.appraisal-policy-id"] == "codewire-cpv-v1"
+	appraisal["ear.appraisal-policy-id"] == "codewire-cpv-v2"
 }
 
 unapproved_appraisal if {
@@ -31,10 +31,22 @@ measured_cpv_claims := claims if {
 	cpu := input.submods.cpu0
 	evidence := cpu["ear.veraison.annotated-evidence"]
 	evidence.snp != null
+	regex.match("^[0-9a-f]{64}$", evidence.init_data)
 
 	claims := evidence.init_data_claims
 	regex.match(environment_id_pattern, claims.codewire_workspace_storage_key_id)
 	regex.match(storage_manifest_tag_pattern, claims.codewire_workspace_storage_manifest_tag)
+
+	# Recheck the current RVPS value supplied by KBS for every resource
+	# request. This invalidates already-issued tokens immediately when the
+	# single per-environment authorization is replaced, expired, or tombstoned.
+	authorization := data.codewire_cpv_init_data_authorization
+	is_object(authorization)
+	authorization.schema_version == 1
+	authorization.state == "authorized"
+	authorization.environment_id == claims.codewire_workspace_storage_key_id
+	authorization.storage_manifest_tag == claims.codewire_workspace_storage_manifest_tag
+	authorization.init_data_sha256 == evidence.init_data
 }
 
 resource_request if {

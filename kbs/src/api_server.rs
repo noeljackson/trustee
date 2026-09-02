@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::collections::HashMap;
+#[cfg(feature = "as")]
+use std::time::Duration;
 
 use actix_web::{
     http::{header::Header, Method},
@@ -16,7 +18,11 @@ use base64::Engine;
 use key_value_storage::StorageProvider;
 use policy_engine::{rego::Regorus, PolicyEngine};
 use serde_json::json;
+#[cfg(feature = "as")]
+use serde_json::Value;
 use tracing::{info, warn};
+#[cfg(feature = "as")]
+use uuid::{Uuid, Variant};
 
 use crate::{
     admin::Admin,
@@ -40,6 +46,27 @@ pub const KBS_POLICY_RULE: &str = "data.policy.allow";
 
 /// The name of the policy identifier for the KBS Resource Policy
 pub const KBS_POLICY_ID: &str = "resource-policy";
+
+#[cfg(feature = "as")]
+const CPV_AUTHORIZATION_QUERY_TIMEOUT: Duration = Duration::from_secs(10);
+
+#[cfg(feature = "as")]
+fn cpv_init_data_authorization_reference(claims: &Value) -> Option<String> {
+    let environment_id = claims
+        .pointer(
+            "/submods/cpu0/ear.veraison.annotated-evidence/init_data_claims/codewire_workspace_storage_key_id",
+        )?
+        .as_str()?;
+    let parsed = Uuid::parse_str(environment_id).ok()?;
+    if parsed.hyphenated().to_string() != environment_id
+        || parsed.get_variant() != Variant::RFC4122
+        || !(1..=5).contains(&parsed.get_version_num())
+    {
+        return None;
+    }
+
+    Some(format!("codewire_cpv_init_data/{environment_id}"))
+}
 
 macro_rules! kbs_path {
     ($path:expr) => {
@@ -247,7 +274,6 @@ pub(crate) async fn api(
         }
     );
 
-    let policy_data_str = policy_data.to_string();
     match plugin {
         #[cfg(feature = "as")]
         "auth" if request.method() == Method::POST => core
@@ -411,6 +437,28 @@ pub(crate) async fn api(
                 let claims = core.token_verifier.verify(token)?;
 
                 let claim_str = serde_json::to_string(&claims)?;
+
+                let mut request_policy_data = policy_data.clone();
+                #[cfg(feature = "as")]
+                if let Some(reference_id) = cpv_init_data_authorization_reference(&claims) {
+                    let authorization = match tokio::time::timeout(
+                        CPV_AUTHORIZATION_QUERY_TIMEOUT,
+                        core.attestation_service
+                            .query_reference_value(&reference_id),
+                    )
+                    .await
+                    {
+                        Ok(Ok(value)) => serde_json::from_str(&value).unwrap_or(Value::Null),
+                        Ok(Err(_)) | Err(_) => {
+                            warn!(
+                                "CPV init-data authorization lookup failed; denying resource access"
+                            );
+                            Value::Null
+                        }
+                    };
+                    request_policy_data["codewire_cpv_init_data_authorization"] = authorization;
+                }
+                let policy_data_str = request_policy_data.to_string();
 
                 KBS_POLICY_EVALS.inc();
                 // TODO: add policy filter support for other plugins
