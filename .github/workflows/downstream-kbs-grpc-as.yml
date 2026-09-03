@@ -7,12 +7,17 @@ on:
 
 permissions: {}
 
+concurrency:
+  group: downstream-kbs-grpc-as-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   publish-amd64:
+    name: Publish amd64 KBS and RVPS image
     runs-on: ubuntu-24.04
     permissions:
-      contents: read
-      packages: write
+      contents: read # checkout the exact deployment source
+      packages: write # publish into the fork-owned package namespace
     steps:
       - name: Check out exact source
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0

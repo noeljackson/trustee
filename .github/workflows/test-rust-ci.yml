@@ -28,8 +28,9 @@ jobs:
             test_features: "pkcs11,pqc-experimental"
           - instance: ubuntu-24.04-arm
             test_features: "coco-as-builtin,coco-as-grpc,intel-trust-authority-as,cca-attester,pkcs11"
-          - instance: s390x-large
-            test_features: "coco-as-builtin,coco-as-grpc,intel-trust-authority-as,pkcs11"
+          # The downstream deployment targets AMD EPYC/SNP and this fork has
+          # no s390x runner. The canonical source branch retains upstream's
+          # full architecture matrix.
     runs-on: ${{ matrix.instance }}
     permissions:
       contents: read
@@ -149,4 +150,3 @@ jobs:
 
       - name: Run trustee CLI lint/format/test
         run: make test-trustee-cli-unit
-
